@@ -1,0 +1,90 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: Configuring cluster (step 1)
+  command: "{{ item }}"
+  with_items:
+    - " pcs cluster auth {{ node1 }}.{{ domain }} {{ node2 }}.{{ domain }} {{ node3 }}.{{ domain }} -u hacluster -p {{ pcs_password }}"
+
+- name: Check for replay (/opt/pcs_config_done exists)
+  stat:
+    path: /opt/pcs_config_done
+  register: pcs_config_done
+
+- name: Configuring cluster (step 2)
+  command: "{{ item }}"
+  with_items:
+    - "pcs cluster setup --name {{ cluster_name }} {{ node1 }}.{{ domain }} {{ node2 }}.{{ domain }} {{ node3 }}.{{ domain }}"
+  when:
+    - pcs_config_done.stat.exists != True
+
+- name: Set replay protection (/opt/pcs_config_done)
+  file:
+    path: /opt/pcs_config_done
+    state: touch
+    owner: root
+    group: root
+    mode: '0744'
+  when:
+    - pcs_config_done.stat.exists != True
+
+- name: Configuring cluster (step 3)
+  command: "{{ item }}"
+  with_items:
+    - "pcs cluster enable --all"
+    - "pcs cluster start --all"
+
+- name: Add ClusterIP to DNS
+  ipa_dnsrecord:
+    ipa_host: "{{ idm_server }}.{{ domain }}"
+    ipa_pass: "{{ IPA_password }}"
+    state: present
+    zone_name: mydomain.test
+    record_name: "{{ cluster_name}}"
+    record_type: "A"
+    record_value: "{{ cluster_ip }}"
+
+- name: Check for replay (/opt/pcs_config2_done exists)
+  stat:
+    path: /opt/pcs_config2_done
+  register: pcs_config2_done
+
+- name: Configuring cluster (step 2)
+  command: "{{ item }}"
+  with_items:
+    - "pcs cluster cib tmp_drbd_cfg"
+    - "pcs -f tmp_drbd_cfg stonith create pcm1_fence_dev fence_vbox ipaddr=\"{{ staging_ip }}\" login=\"{{ staging_login }}\" passwd=\"{{ staging_password }}\" power_wait=\"15\" secure=\"1\" port=\"{{ node1 }}\" pcmk_host_list=\"{{ node1 }}.{{ domain }}\""
+    - "pcs -f tmp_drbd_cfg stonith create pcm2_fence_dev fence_vbox ipaddr=\"{{ staging_ip }}\" login=\"{{ staging_login }}\" passwd=\"{{ staging_password }}\" power_wait=\"15\" secure=\"1\" port=\"{{ node2 }}\" pcmk_host_list=\"{{ node2 }}.{{ domain }}\""
+    - "pcs -f tmp_drbd_cfg stonith create pcm3_fence_dev fence_vbox ipaddr=\"{{ staging_ip }}\" login=\"{{ staging_login }}\" passwd=\"{{ staging_password }}\" power_wait=\"15\" secure=\"1\" port=\"{{ node3 }}\" pcmk_host_list=\"{{ node3 }}.{{ domain }}\""
+    - "pcs -f tmp_drbd_cfg resource defaults resource-stickiness=100"
+    - "pcs -f tmp_drbd_cfg resource op defaults timeout=10s"
+    - "pcs -f tmp_drbd_cfg resource create DRBD ocf:linbit:drbd drbd_resource={{ drbd_resource }} op monitor interval=10s"
+    - "pcs -f tmp_drbd_cfg resource master DRBDClone DRBD master-max=1 master-node-max=1 clone-node-max=1 notify=true"
+    - "pcs -f tmp_drbd_cfg resource create DRBDMount Filesystem device={{ drbd_device }} directory={{ drbd_mountpoint }} fstype=xfs"
+    - "pcs -f tmp_drbd_cfg constraint colocation add DRBDMount with DRBDClone INFINITY with-rsc-role=Master"
+    - "pcs -f tmp_drbd_cfg constraint order promote DRBDClone then start DRBDMount"
+    - "pcs -f tmp_drbd_cfg resource create ClusterIP ocf:heartbeat:IPaddr2 ip={{ cluster_ip }} cidr_netmask={{ prod_cidr_mask }} op monitor interval=10s"
+    - "pcs -f tmp_drbd_cfg constraint colocation add ClusterIP with DRBDClone INFINITY with-rsc-role=Master"
+    - "pcs -f tmp_drbd_cfg constraint order start DRBDMount then start ClusterIP"
+    - "pcs -f tmp_drbd_cfg resource create NFSDaemon systemd:nfs-server op monitor interval=15s"
+    - "pcs -f tmp_drbd_cfg resource clone NFSDaemon"
+    - "pcs -f tmp_drbd_cfg constraint order start ClusterIP then start NFSDaemon-clone"
+    - "pcs -f tmp_drbd_cfg constraint colocation add NFSDaemon-clone with DRBDClone INFINITY"
+    - "pcs -f tmp_drbd_cfg resource create NFSExport ocf:heartbeat:exportfs fsid=0 directory={{ drbd_mountpoint }} options=\"rw,crossmnt,sec=krb5p,sync\" clientspec=\"192.168.66.0/23\" op monitor interval=15s"
+    - "pcs -f tmp_drbd_cfg resource clone NFSExport"
+    - "pcs -f tmp_drbd_cfg constraint colocation add NFSExport-clone with DRBDClone INFINITY"
+    - "pcs -f tmp_drbd_cfg constraint order start NFSDaemon-clone then start NFSExport-clone"
+    - "pcs cluster cib-push tmp_drbd_cfg --config"
+  when: (ansible_virtualization_type == "virtualbox" and pcs_config2_done.stat.exists != True)
+
+- name: Set replay protection (/opt/pcs_config2_done)
+  file:
+    path: /opt/pcs_config2_done
+    state: touch
+    owner: root
+    group: root
+    mode: '0744'
+  when:
+    - pcs_config2_done.stat.exists != True
+...

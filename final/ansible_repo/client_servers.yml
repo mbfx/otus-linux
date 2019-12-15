@@ -1,0 +1,13 @@
+---
+- name: "Client servers provision (OTUS project)"
+  hosts: srv1
+  become: true
+  tags:
+    - server
+    - client
+
+  roles:
+    - all_base_config
+    - client_network_config
+    - all_domain_config
+...

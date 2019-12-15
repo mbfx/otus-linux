@@ -1,0 +1,45 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: Install Pacemaker
+  yum:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - pcs
+    - pacemaker
+    - fence-agents-all
+
+#- name: Add new user for hacluster
+#  ignore_errors: true
+#  ipa_user:
+#    name: "hacluster"
+#    password: "{{ pcs_password }}"
+#    givenname: "hacluster"
+#    sn: "hacluster"
+#    state: present
+#    ipa_host: "{{ idm_server }}.{{ domain }}"
+#    ipa_user: "{{ idm_principal }}"
+#    ipa_pass: "{{ IPA_password }}"
+#  notify: "restart pcsd"
+#  run_once: true
+
+- name: Set password for local hacluster user
+  user:
+    name: "hacluster"
+    password: "{{ pcs_password | password_hash('sha512') }}" 
+    state: present
+    update_password: always
+    create_home: yes
+  notify: "restart pcsd"
+
+- name: Allow cluster processes on SELinux
+  seboolean:
+    name: daemons_enable_cluster_mode
+    state: yes
+    persistent: yes
+
+- meta: flush_handlers
+...

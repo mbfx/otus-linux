@@ -1,0 +1,13 @@
+#!/bin/sh
+
+INF="$1" # interface
+STA="$2" # desired state
+ 
+# Send message to /var/log/messages 
+logger "$0 called for interface named $INF with $STA ..."
+
+case "$INF" in
+        {{ bond_slave_1 }}) logger "Setting up $INF ip address..."; ip link set $INF promisc on ;;
+        {{ bond_slave_2 }}) logger "Setting up $INF ip address..."; ip link set $INF promisc on ;;
+esac
+exit 0

@@ -1,0 +1,13 @@
+---
+- name: Import playbook - Switches
+  import_playbook: "client_switches.yml"
+
+- name: Import playbook - Routers
+  import_playbook: "client_routers.yml"
+
+- name: Import playbook - Servers
+  import_playbook: "client_servers.yml"
+
+- name: Import playbook - Workstations
+  import_playbook: "client_workstations.yml"
+...

@@ -1,0 +1,49 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: Install required packages
+  yum:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - dbus
+    - NetworkManager-glib
+    - NetworkManager
+    - tcpdump
+  notify: "reload NetworkManager"
+
+- name: Check for replay (/opt/client_network_done exists)
+  stat:
+    path: /opt/client_network_done
+  register: client_network_done
+
+# Можно было использовать модуль nmcli, но какие-то баги не дают это сделать.
+- name: Modify network interface
+  command: "{{ item }}"
+  with_items:
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv4.addresses {{ prod_ip_addr }}/{{ client_cidr_mask }}"
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv6.method ignore"
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv4.method manual"
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv4.routes \"{{ prod_network_addr }}/{{ prod_cidr_mask }} {{ client_gw }}\""
+    - "nmcli con mod \"Wired\ connection\ 1\" +ipv4.routes \"{{ internetwork_addr }}/{{ internetwork_cidr_mask }} {{ client_gw }}\""
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv4.dns \"{{ main_dns_server }}, {{ second_dns_server }}\""
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv4.dns-search {{ domain }}"
+    - "nmcli con down \"Wired\ connection\ 1\""
+    - "nmcli con up \"Wired\ connection\ 1\""
+  when:
+    - client_network_done.stat.exists != True
+
+- name: Set replay protection (/opt/client_network_done)
+  file:
+    path: /opt/client_network_done
+    state: touch
+    owner: root
+    group: root
+    mode: '0744'
+  when:
+    - client_network_done.stat.exists != True
+
+- meta: flush_handlers
+...

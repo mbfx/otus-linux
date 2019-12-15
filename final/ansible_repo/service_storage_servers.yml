@@ -1,0 +1,35 @@
+---
+- name: "Service storage provision (OTUS project)"
+  hosts:
+    - pcm1
+    - pcm2
+    - pcm3
+  become: true
+  tags:
+    - storage
+    - service
+
+  roles:
+    - all_base_config
+    - service_network_config
+    - all_domain_config
+    - service_pcs_node_install
+    - service_pcs_fence_install
+    - service_lvm_create_device
+    - service_drbd_node_install
+    - service_nfs_install
+    - service_nfs_server_config
+    - service_nfs_export_config
+
+- name: "Service storage configuration (OTUS project)"
+  hosts:
+    - pcm1
+  become: true
+  tags:
+    - storage
+    - service
+
+  roles:
+    - service_pcs_config
+#    - service_pcs_fence_config
+...

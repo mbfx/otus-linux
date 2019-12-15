@@ -1,0 +1,303 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+home = ENV['HOME']
+
+Vagrant.configure(2) do |config|
+
+	config.trigger.before :up do |trigger|
+    trigger.info = "Preup trigger - generating keys..."
+    trigger.run = {path: "scripts/keygen.sh"}
+  end
+
+  config.vm.define "r1" do |r1|
+    r1.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "R1-R2"
+    r1.vm.network "private_network", adapter: 3, :device => "eth2", auto_config: false, virtualbox__intnet: "R1-SW1"
+    r1.vm.network "private_network", adapter: 4, :device => "eth3", auto_config: false, virtualbox__intnet: "R1-SW2"
+    r1.vm.network "private_network", adapter: 5, :device => "eth4", ip: '192.168.11.100', netmask: "255.255.255.0" # Management
+    r1.vm.hostname = "r1"
+    r1.vm.box = "centos/7"
+    r1.vm.box_version = "1905.1"
+    r1.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "r1"
+      virtualbox.customize ["modifyvm", :id, "--memory", "512"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"] # Vagrant LAG fix
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc4", "allow-all"] # Vagrant LAG fix
+    end
+  end
+
+  config.vm.define "r2" do |r2|
+    r2.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "R1-SW3"
+    r2.vm.network "private_network", adapter: 3, :device => "eth2", auto_config: false, virtualbox__intnet: "R1-R2"
+    r2.vm.network "private_network", adapter: 4, :device => "eth3", ip: '192.168.11.120', netmask: "255.255.255.0" # Management
+    r2.vm.hostname = "r2"
+    r2.vm.box = "centos/7"
+    r2.vm.box_version = "1905.1"
+    r2.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "r2"
+      virtualbox.customize ["modifyvm", :id, "--memory", "512"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+    end
+  end
+
+  config.vm.define "sw1" do |sw1|
+    sw1.vm.network "private_network", adapter: 2, :device => "swp1", auto_config: false, virtualbox__intnet: "R1-SW1"
+    sw1.vm.network "private_network", adapter: 3, :device => "swp2", auto_config: false, virtualbox__intnet: "SW1-SW2-1"
+    sw1.vm.network "private_network", adapter: 4, :device => "swp3", auto_config: false, virtualbox__intnet: "SW1-SW2-2"
+    sw1.vm.network "private_network", adapter: 5, :device => "swp4", auto_config: false, virtualbox__intnet: "SW1-AUTH1"
+    sw1.vm.network "private_network", adapter: 6, :device => "swp5", auto_config: false, virtualbox__intnet: "SW1-AUTH2"
+    sw1.vm.network "private_network", adapter: 7, :device => "swp6", auto_config: false, virtualbox__intnet: "SW1-MON"
+    sw1.vm.network "private_network", adapter: 8, :device => "swp7", auto_config: false, virtualbox__intnet: "SW1-STOR1"
+    sw1.vm.network "private_network", adapter: 9, :device => "swp8", auto_config: false, virtualbox__intnet: "SW1-STOR2"
+    sw1.vm.network "private_network", adapter: 10, :device => "swp9", auto_config: false, virtualbox__intnet: "SW1-STOR3"
+    sw1.vm.network "private_network", adapter: 11, :device => "swp10", ip: '192.168.11.101', netmask: "255.255.255.0" # Management
+    sw1.vm.hostname = "sw1"
+    sw1.vm.box = "CumulusCommunity/cumulus-vx"
+    sw1.vm.box_version = "3.7.9"
+    sw1.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "sw1"
+      virtualbox.customize ["modifyvm", :id, "--memory", "768"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+      virtualbox.customize ["modifyvm", :id, "--chipset", "ich9"] # 8+ eth-ports
+    end
+  end
+
+  config.vm.define "sw2" do |sw2|
+    sw2.vm.network "private_network", adapter: 2, :device => "swp1", auto_config: false, virtualbox__intnet: "R1-SW2"
+    sw2.vm.network "private_network", adapter: 3, :device => "swp2", auto_config: false, virtualbox__intnet: "SW1-SW2-1"
+    sw2.vm.network "private_network", adapter: 4, :device => "swp3", auto_config: false, virtualbox__intnet: "SW1-SW2-2"
+    sw2.vm.network "private_network", adapter: 5, :device => "swp4", auto_config: false, virtualbox__intnet: "SW2-AUTH1"
+    sw2.vm.network "private_network", adapter: 6, :device => "swp5", auto_config: false, virtualbox__intnet: "SW2-AUTH2"
+    sw2.vm.network "private_network", adapter: 7, :device => "swp6", auto_config: false, virtualbox__intnet: "SW2-MON"
+    sw2.vm.network "private_network", adapter: 8, :device => "swp7", auto_config: false, virtualbox__intnet: "SW2-STOR1"
+    sw2.vm.network "private_network", adapter: 9, :device => "swp8", auto_config: false, virtualbox__intnet: "SW2-STOR2"
+    sw2.vm.network "private_network", adapter: 10, :device => "swp9", auto_config: false, virtualbox__intnet: "SW2-STOR3"
+    sw2.vm.network "private_network", adapter: 11, :device => "swp10", ip: '192.168.11.102', netmask: "255.255.255.0" # Management
+    sw2.vm.hostname = "sw2"
+    sw2.vm.box = "CumulusCommunity/cumulus-vx"
+    sw2.vm.box_version = "3.7.9"
+    sw2.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "sw2"
+      virtualbox.customize ["modifyvm", :id, "--memory", "768"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+      virtualbox.customize ["modifyvm", :id, "--chipset", "ich9"] # 8+ eth-ports
+    end
+  end
+
+  config.vm.define "sw3" do |sw3|
+    sw3.vm.network "private_network", adapter: 2, :device => "swp1", auto_config: false, virtualbox__intnet: "R1-SW3"
+    sw3.vm.network "private_network", adapter: 3, :device => "swp2", auto_config: false, virtualbox__intnet: "SW3-srv1"
+    sw3.vm.network "private_network", adapter: 4, :device => "swp3", auto_config: false, virtualbox__intnet: "SW3-WS1"
+    sw3.vm.network "private_network", adapter: 5, :device => "swp4", ip: '192.168.11.121', netmask: "255.255.255.0" # Management
+    sw3.vm.hostname = "sw3"
+    sw3.vm.box = "CumulusCommunity/cumulus-vx"
+    sw3.vm.box_version = "3.7.9"
+    sw3.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "sw3"
+      virtualbox.customize ["modifyvm", :id, "--memory", "768"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+      virtualbox.customize ["modifyvm", :id, "--chipset", "ich9"] # 8+ eth-ports
+    end
+  end
+
+  config.vm.define "auth1" do |auth1|
+    auth1.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "SW1-AUTH1"
+    auth1.vm.network "private_network", adapter: 3, :device => "eth2", auto_config: false, virtualbox__intnet: "SW2-AUTH1"
+    auth1.vm.network "private_network", adapter: 4, :device => "eth3", ip: '192.168.11.103', netmask: "255.255.255.0" # Management
+    auth1.vm.hostname = "auth1"
+    auth1.vm.box = "centos/7"
+    auth1.vm.box_version = "1905.1"
+    auth1.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "auth1"
+      virtualbox.customize ["modifyvm", :id, "--memory", "2048"] # FreeIPA
+      virtualbox.customize ["modifyvm", :id, "--cpus", "2"] # FreeIPA
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"] # Vagrant LAG fix
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"] # Vagrant LAG fix
+    end
+  end
+
+  config.vm.define "auth2" do |auth2|
+    auth2.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "SW1-AUTH2"
+    auth2.vm.network "private_network", adapter: 3, :device => "eth2", auto_config: false, virtualbox__intnet: "SW2-AUTH2"
+    auth2.vm.network "private_network", adapter: 4, :device => "eth3", ip: '192.168.11.104', netmask: "255.255.255.0" # Management
+    auth2.vm.hostname = "auth2"
+    auth2.vm.box = "centos/7"
+    auth2.vm.box_version = "1905.1"
+    auth2.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "auth2"
+      virtualbox.customize ["modifyvm", :id, "--memory", "2048"] # FreeIPA
+      virtualbox.customize ["modifyvm", :id, "--cpus", "2"] # FreeIPA
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"] # Vagrant LAG fix
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"] # Vagrant LAG fix
+    end
+  end
+
+  config.vm.define "mon" do |mon|
+    mon.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "SW1-MON"
+    mon.vm.network "private_network", adapter: 3, :device => "eth2", auto_config: false, virtualbox__intnet: "SW2-MON"
+    mon.vm.network "private_network", adapter: 4, :device => "eth3", ip: '192.168.11.105', netmask: "255.255.255.0" # Management
+    mon.vm.hostname = "mon"
+    mon.vm.box = "centos/7"
+    mon.vm.box_version = "1905.1"
+    mon.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "mon"
+      virtualbox.customize ["modifyvm", :id, "--memory", "1024"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"] # Vagrant LAG fix
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"] # Vagrant LAG fix
+    end
+  end
+
+  config.vm.define "pcm1" do |pcm1|
+    storage1 = home + '/VirtualBox VMs/final/pcm1/storage1.vdi'
+    storage2 = home + '/VirtualBox VMs/final/pcm1/storage2.vdi'
+    storage3 = home + '/VirtualBox VMs/final/pcm1/storage3.vdi'
+    pcm1.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "SW1-STOR1"
+    pcm1.vm.network "private_network", adapter: 3, :device => "eth2", auto_config: false, virtualbox__intnet: "SW2-STOR1"
+    pcm1.vm.network "private_network", adapter: 4, :device => "eth3", ip: '192.168.11.110', netmask: "255.255.255.0" # Management
+    pcm1.vm.hostname = "pcm1"
+    pcm1.vm.box = "centos/7"
+    pcm1.vm.box_version = "1905.1"
+    pcm1.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "pcm1"
+      virtualbox.customize ["modifyvm", :id, "--memory", "768"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"] # Vagrant LAG fix
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"] # Vagrant LAG fix
+      unless File.exist?(storage1)
+        virtualbox.customize ['createhd', '--filename', storage1, '--variant', 'Fixed', '--size', 1024]
+        need_controller_pcm1 = true
+      end
+      unless File.exist?(storage2)
+        virtualbox.customize ['createhd', '--filename', storage2, '--variant', 'Fixed', '--size', 1024]
+        need_controller_pcm1 = true
+      end
+      unless File.exist?(storage3)
+        virtualbox.customize ['createhd', '--filename', storage3, '--variant', 'Fixed', '--size', 1024]
+        need_controller_pcm1 =
+         true
+      end
+      if need_controller_pcm1 == true
+        virtualbox.customize ["storagectl", :id, "--name", "SATA", "--add", "sata" ]
+      end
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', storage1]
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 2, '--device', 0, '--type', 'hdd', '--medium', storage2]
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 3, '--device', 0, '--type', 'hdd', '--medium', storage3]
+      end
+  end
+
+  config.vm.define "pcm2" do |pcm2|
+    storage1 = home + '/VirtualBox VMs/final/pcm2/storage1.vdi'
+    storage2 = home + '/VirtualBox VMs/final/pcm2/storage2.vdi'
+    storage3 = home + '/VirtualBox VMs/final/pcm2/storage3.vdi'
+    pcm2.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "SW1-STOR2"
+    pcm2.vm.network "private_network", adapter: 3, :device => "eth2", auto_config: false, virtualbox__intnet: "SW2-STOR2"
+    pcm2.vm.network "private_network", adapter: 4, :device => "eth3", ip: '192.168.11.111', netmask: "255.255.255.0" # Management
+    pcm2.vm.hostname = "pcm2"
+    pcm2.vm.box = "centos/7"
+    pcm2.vm.box_version = "1905.1"
+    pcm2.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "pcm2"
+      virtualbox.customize ["modifyvm", :id, "--memory", "768"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"] # Vagrant LAG fix
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"] # Vagrant LAG fix
+      unless File.exist?(storage1)
+        virtualbox.customize ['createhd', '--filename', storage1, '--variant', 'Fixed', '--size', 1024]
+        need_controller_pcm2 = true
+      end
+      unless File.exist?(storage2)
+        virtualbox.customize ['createhd', '--filename', storage2, '--variant', 'Fixed', '--size', 1024]
+        need_controller_pcm2 = true
+      end
+      unless File.exist?(storage3)
+        virtualbox.customize ['createhd', '--filename', storage3, '--variant', 'Fixed', '--size', 1024]
+        need_controller_pcm2 = true
+      end
+      if need_controller_pcm2 == true
+        virtualbox.customize ["storagectl", :id, "--name", "SATA", "--add", "sata" ]
+      end
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', storage1]
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 2, '--device', 0, '--type', 'hdd', '--medium', storage2]
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 3, '--device', 0, '--type', 'hdd', '--medium', storage3]
+    end
+  end
+
+  config.vm.define "pcm3" do |pcm3|
+    storage1 = home + '/VirtualBox VMs/final/pcm3/storage1.vdi'
+    storage2 = home + '/VirtualBox VMs/final/pcm3/storage2.vdi'
+    storage3 = home + '/VirtualBox VMs/final/pcm3/storage3.vdi'
+    pcm3.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "SW1-STOR3"
+    pcm3.vm.network "private_network", adapter: 3, :device => "eth2", auto_config: false, virtualbox__intnet: "SW2-STOR3"
+    pcm3.vm.network "private_network", adapter: 4, :device => "eth3", ip: '192.168.11.112', netmask: "255.255.255.0" # Management
+    pcm3.vm.hostname = "pcm3"
+    pcm3.vm.box = "centos/7"
+    pcm3.vm.box_version = "1905.1"
+    pcm3.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "pcm3"
+      virtualbox.customize ["modifyvm", :id, "--memory", "768"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"] # Vagrant LAG fix
+      virtualbox.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"] # Vagrant LAG fix
+      unless File.exist?(storage1)
+        virtualbox.customize ['createhd', '--filename', storage1, '--variant', 'Fixed', '--size', 1024]
+        need_controller_pcm3 = true
+      end
+      unless File.exist?(storage2)
+        virtualbox.customize ['createhd', '--filename', storage2, '--variant', 'Fixed', '--size', 1024]
+        need_controller_pcm3 = true
+      end
+      unless File.exist?(storage3)
+        virtualbox.customize ['createhd', '--filename', storage3, '--variant', 'Fixed', '--size', 1024]
+        need_controller_pcm3 = true
+      end
+      if need_controller_pcm3 == true
+        virtualbox.customize ["storagectl", :id, "--name", "SATA", "--add", "sata" ]
+      end
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', storage1]
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 2, '--device', 0, '--type', 'hdd', '--medium', storage2]
+      virtualbox.customize ['storageattach', :id, '--storagectl', 'SATA', '--port', 3, '--device', 0, '--type', 'hdd', '--medium', storage3]
+    end
+  end
+
+  config.vm.define "srv1" do |srv1|
+    srv1.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "SW3-srv1"
+    srv1.vm.network "private_network", adapter: 3, :device => "eth2", ip: '192.168.11.122', netmask: "255.255.255.0" # Management
+    srv1.vm.hostname = "srv1"
+    srv1.vm.box = "centos/7"
+    srv1.vm.box_version = "1905.1"
+    srv1.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "srv1"
+      virtualbox.customize ["modifyvm", :id, "--memory", "512"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+    end
+  end
+
+  config.vm.define "ws1" do |ws1|
+    ws1.vm.network "private_network", adapter: 2, :device => "eth1", auto_config: false, virtualbox__intnet: "SW3-WS1"
+    ws1.vm.network "private_network", adapter: 3, :device => "eth2", ip: '192.168.11.123', netmask: "255.255.255.0" # Management
+    ws1.vm.hostname = "ws1"
+    ws1.vm.box = "centos/7"
+    ws1.vm.box_version = "1905.1"
+    ws1.vm.provider :virtualbox do |virtualbox|
+      virtualbox.name = "ws1"
+      virtualbox.customize ["modifyvm", :id, "--memory", "512"]
+      virtualbox.customize ["modifyvm", :id, "--cpus", "1"]
+    end
+  end
+
+  config.vm.provision "shell", run: "always", inline: <<-SHELL
+    mkdir -p ~root/.ssh
+    cp ~vagrant/.ssh/auth* ~root/.ssh
+    cat /vagrant/id_rsa.pub | awk '{print $1,$2}' >> /root/.ssh/authorized_keys
+  SHELL
+
+  #config.vm.provision "ansible" do |ansible|
+  #  ansible.compatibility_mode = "2.0"
+  #  ansible.playbook = "ansible_repo/startall.yml"
+  #  ansible.verbose = "true"
+  #  ansible.become = "true"
+  #end
+
+end

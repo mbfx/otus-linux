@@ -1,0 +1,51 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "Cumulus Linux" and ansible_distribution_major_version != "3")
+
+- name: Check for replay (/opt/switch_done exists)
+  stat:
+    path: /opt/switch_done
+  register: switch_done
+
+- name: Configuring switch
+  command: "{{ item }}"
+  with_items:
+    - "net add bridge {{ bridge_name }}"
+    - "net add bridge {{ bridge_name }} ip address {{ prod_ip_addr }}/{{ prod_cidr_mask }}"
+    - "net add bond {{ peerlink_name }} bond slaves {{ peerlink_ports }}"
+    - "net add interface {{ peerlink_name }}.4094 ip address {{ peerlink_ip_addr }}/{{ peerlink_ip_cidr }}"
+    - "net add interface {{ peerlink_name }}.4094 clag peer-ip {{ peerlink_ip_opposite }}"
+    - "net add interface {{ peerlink_name }}.4094 clag backup-ip {{ peerlink_backup_ip }}"
+    - "net add interface {{ peerlink_name }}.4094 clag sys-mac {{ peerlink_mac_address }}"
+    - "net add bridge {{ bridge_name }} ports {{ peerlink_name }}"
+    - "net commit"
+    - "net add clag port bond {{ router_bond_name }} interface {{ router_port }} clag-id {{ router_clagid }}"
+    - "net add clag port bond {{ auth1_bond_name }} interface {{ auth1_port }} clag-id {{ auth1_clagid }}"
+    - "net add clag port bond {{ auth2_bond_name }} interface {{ auth2_port }} clag-id {{ auth2_clagid }}"
+    - "net add clag port bond {{ mon_bond_name }} interface {{ mon_port }} clag-id {{ mon_clagid }}"
+    - "net add clag port bond {{ pcm1_bond_name }} interface {{ pcm1_port }} clag-id {{ pcm1_clagid }}"
+    - "net add clag port bond {{ pcm2_bond_name }} interface {{ pcm2_port }} clag-id {{ pcm2_clagid }}"
+    - "net add clag port bond {{ pcm3_bond_name }} interface {{ pcm3_port }} clag-id {{ pcm3_clagid }}"
+    - "net commit"
+    - "net del bridge bridge"
+    - "net add bridge {{ bridge_name }} ports {{ router_bond_name }}"
+    - "net add bridge {{ bridge_name }} ports {{ auth1_bond_name }}"
+    - "net add bridge {{ bridge_name }} ports {{ auth2_bond_name }}"
+    - "net add bridge {{ bridge_name }} ports {{ mon_bond_name }}"
+    - "net add bridge {{ bridge_name }} ports {{ pcm1_bond_name }}"
+    - "net add bridge {{ bridge_name }} ports {{ pcm2_bond_name }}"
+    - "net add bridge {{ bridge_name }} ports {{ pcm3_bond_name }}"
+    - "net commit"
+  when:
+    - switch_done.stat.exists != True
+
+- name: Set replay protection (/opt/switch_done)
+  file:
+    path: /opt/switch_done
+    state: touch
+    owner: root
+    group: root
+    mode: '0744'
+  when:
+    - switch_done.stat.exists != True
+...

@@ -1,0 +1,7 @@
+---
+hostname: "r2"
+prod_ip_addr: "192.168.67.1"
+interrouter_ip: "172.16.0.2"
+opposite_ip: "172.16.0.1"
+interrouter_interface: "eth1"
+...

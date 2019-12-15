@@ -1,0 +1,14 @@
+---
+- name: "Monitoring (OTUS project)"
+  hosts: mon
+  become: true
+  tags:
+    - monitoring
+    - service
+
+  roles:
+    - all_base_config
+    - service_network_config
+    - all_X11_config
+    - all_domain_config
+...

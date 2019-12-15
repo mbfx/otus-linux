@@ -1,0 +1,116 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: Install required packages
+  yum:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - dbus
+    - NetworkManager-glib
+    - NetworkManager
+    - tcpdump
+  notify: "reload NetworkManager"
+
+- name: net.ipv4.conf.all.forwarding to /etc/sysctl.conf
+  sysctl:
+    name: net.ipv4.conf.all.forwarding
+    value: "1"
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: net.ipv4.ip_forward to /etc/sysctl.conf
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: net.ipv4.conf.all.rp_filter to /etc/sysctl.conf
+  sysctl:
+    name: net.ipv4.conf.all.rp_filter
+    value: "2"
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: Check for replay (/opt/internetwork_done exists)
+  stat:
+    path: /opt/internetwork_done
+  register: internetwork_done
+
+# Можно было использовать модуль nmcli, но какие-то баги не дают это сделать.
+- name: Manage internetwork interface
+  command: "{{ item }}"
+  with_items:
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv4.addresses {{ interrouter_ip }}/{{ internetwork_cidr_mask }}"
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv6.method ignore"
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv4.method manual"
+    - "nmcli con mod \"Wired\ connection\ 1\" ipv4.routes \"{{ client_network_addr }}/{{ client_cidr_mask }} {{ opposite_ip }}\""
+    - "nmcli con down \"Wired\ connection\ 1\""
+    - "nmcli con up \"Wired\ connection\ 1\""
+  when:
+    - internetwork_done.stat.exists != True
+
+- name: Set replay protection (/opt/internetwork_done)
+  file:
+    path: /opt/internetwork_done
+    state: touch
+    owner: root
+    group: root
+    mode: '0744'
+  when:
+    - internetwork_done.stat.exists != True
+
+- name: Provision Vagrant fix for LAG
+  template:
+    backup: true
+    owner: root
+    group: root
+    mode: '0744'
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { src: vagrant_fix.sh.j2, dest: "/etc/NetworkManager/dispatcher.d/vagrant_fix.sh" }
+  when: ansible_virtualization_type == "virtualbox"
+
+- name: Check for replay (/opt/network_done exists)
+  stat:
+    path: /opt/network_done
+  register: network_done
+
+# Можно было использовать модуль nmcli, но какие-то баги не дают это сделать.
+- name: Create bond interface
+  command: "{{ item }}"
+  with_items:
+    - "nmcli con add type bond ifname {{ bond_name }} bond.options \"mode=802.3ad,miimon=1000,fail_over_mac=2,lacp_rate=1,use_carrier=0\""
+    - "nmcli con add type ethernet ifname {{ bond_slave_1 }} master {{ bond_name }}"
+    - "nmcli con add type ethernet ifname {{ bond_slave_2 }} master {{ bond_name }}"
+    - "nmcli con mod bond-{{ bond_name }} ipv4.addresses {{ prod_ip_addr }}"
+    - "nmcli con mod bond-{{ bond_name }} ipv6.method ignore"
+    - "nmcli con mod bond-{{ bond_name }} ipv4.method manual"
+    - "nmcli con mod bond-{{ bond_name }} +ipv4.routes {{ prod_network_addr }}/{{ prod_cidr_mask }}"
+    - "nmcli con mod bond-{{ bond_name }} ipv4.dns \"{{ main_dns_server }}, {{ second_dns_server }}\""
+    - "nmcli con mod bond-{{ bond_name }} ipv4.dns-search {{ domain }}"
+    - "nmcli con up bond-slave-{{ bond_slave_1 }}"
+    - "nmcli con up bond-slave-{{ bond_slave_2 }}"
+    - "nmcli con up bond-{{ bond_name }}"
+  when:
+    - network_done.stat.exists != True
+
+- name: Set replay protection (/opt/network_done)
+  file:
+    path: /opt/network_done
+    state: touch
+    owner: root
+    group: root
+    mode: '0744'
+  when:
+    - network_done.stat.exists != True
+
+- meta: flush_handlers
+...

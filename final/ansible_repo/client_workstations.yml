@@ -1,0 +1,13 @@
+---
+- name: "Client workstations provision (OTUS project)"
+  hosts: ws1
+  become: true
+  tags:
+    - workstation
+    - client
+
+  roles:
+    - all_base_config
+    - client_network_config
+    - all_domain_config
+...

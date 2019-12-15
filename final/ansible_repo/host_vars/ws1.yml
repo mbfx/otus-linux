@@ -1,0 +1,4 @@
+---
+hostname: "ws1"
+prod_ip_addr: "192.168.67.20"
+...

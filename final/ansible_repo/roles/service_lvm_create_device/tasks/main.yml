@@ -1,0 +1,18 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: Create volume group (LVM)
+  lvg:
+    state: present
+    vg: "{{ vg_device }}"
+    pvs: "{{ pv_device1 }},{{ pv_device2 }}"
+
+- name: Create logical volume (LVM)
+  lvol:
+    state: present
+    vg: "{{ vg_device }}"
+    lv: "{{ lv_name }}"
+    size: 100%FREE
+    shrink: no
+...

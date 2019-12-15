@@ -1,0 +1,66 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: Install required packages
+  yum:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - dbus
+    - NetworkManager-glib
+    - NetworkManager
+    - tcpdump
+  notify: "reload NetworkManager"
+
+- name: Provision Vagrant fix for LAG
+  template:
+    backup: true
+    owner: root
+    group: root
+    mode: '0744'
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  with_items:
+    - { src: vagrant_fix.sh.j2, dest: "/etc/NetworkManager/dispatcher.d/vagrant_fix.sh" }
+  when: ansible_virtualization_type == "virtualbox"
+
+- name: Check for replay (/opt/network_done exists)
+  stat:
+    path: /opt/network_done
+  register: network_done
+
+# Можно было использовать модуль nmcli, но какие-то баги не дают это сделать.
+- name: Create bond interface
+  command: "{{ item }}"
+  with_items:
+    - "nmcli con add type bond ifname {{ bond_name }} bond.options \"mode=802.3ad,miimon=1000,fail_over_mac=2,lacp_rate=1,use_carrier=0\""
+    - "nmcli con add type ethernet ifname {{ bond_slave_1 }} master {{ bond_name }}"
+    - "nmcli con add type ethernet ifname {{ bond_slave_2 }} master {{ bond_name }}"
+    - "nmcli con mod bond-{{ bond_name }} ipv4.addresses {{ prod_ip_addr }}"
+    - "nmcli con mod bond-{{ bond_name }} ipv6.method ignore"
+    - "nmcli con mod bond-{{ bond_name }} ipv4.method manual"
+    - "nmcli con mod bond-{{ bond_name }} +ipv4.routes {{ prod_network_addr }}/{{ prod_cidr_mask }}"
+    - "nmcli con mod bond-{{ bond_name }} +ipv4.routes \"{{ client_network_addr }}/{{ client_cidr_mask }} {{ prod_gw }}\""
+    - "nmcli con mod bond-{{ bond_name }} +ipv4.routes \"{{ internetwork_addr }}/{{ internetwork_cidr_mask }} {{ prod_gw }}\""
+    - "nmcli con mod bond-{{ bond_name }} ipv4.dns \"{{ main_dns_server }}, {{ second_dns_server }}\""
+    - "nmcli con mod bond-{{ bond_name }} ipv4.dns-search {{ domain }}"
+    - "nmcli con up bond-slave-{{ bond_slave_1 }}"
+    - "nmcli con up bond-slave-{{ bond_slave_2 }}"
+    - "nmcli con up bond-{{ bond_name }}"
+  when:
+    - network_done.stat.exists != True
+
+- name: Set replay protection (/opt/network_done)
+  file:
+    path: /opt/network_done
+    state: touch
+    owner: root
+    group: root
+    mode: '0744'
+  when:
+    - network_done.stat.exists != True
+
+- meta: flush_handlers
+...

@@ -1,0 +1,10 @@
+---
+hostname: "r1"
+prod_ip_addr: "192.168.66.1"
+interrouter_ip: "172.16.0.1"
+opposite_ip: "172.16.0.2"
+interrouter_interface: "eth1"
+bond_name: "bond0"
+bond_slave_1: "eth2"
+bond_slave_2: "eth3"
+...

@@ -1,0 +1,12 @@
+---
+- name: "Client switch provision (OTUS project)"
+  hosts: sw3
+  become: true
+  tags:
+    - switch
+    - network
+    - client
+
+  roles:
+    - client_switch_config
+...

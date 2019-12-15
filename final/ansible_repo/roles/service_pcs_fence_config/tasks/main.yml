@@ -1,0 +1,35 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: Check for replay (/opt/pcs_fence_config_done exists)
+  stat:
+    path: /opt/pcs_fence_config_done
+  register: pcs_fence_config_done
+
+- name: Configure fencing on virtualbox
+  command: "{{ item }}"
+  with_items:
+    - "pcs stonith create pcm1_fence_dev fence_vbox ipaddr=\"{{ staging_ip }}\" login=\"{{ staging_login }}\" passwd=\"{{ staging_password }}\" power_wait=\"15\" secure=\"1\" port=\"{{ node1 }}\" pcmk_host_list=\"{{ node1 }}.{{ domain }}\""
+    - "pcs stonith create pcm2_fence_dev fence_vbox ipaddr=\"{{ staging_ip }}\" login=\"{{ staging_login }}\" passwd=\"{{ staging_password }}\" power_wait=\"15\" secure=\"1\" port=\"{{ node2 }}\" pcmk_host_list=\"{{ node2 }}.{{ domain }}\""
+    - "pcs stonith create pcm3_fence_dev fence_vbox ipaddr=\"{{ staging_ip }}\" login=\"{{ staging_login }}\" passwd=\"{{ staging_password }}\" power_wait=\"15\" secure=\"1\" port=\"{{ node3 }}\" pcmk_host_list=\"{{ node3 }}.{{ domain }}\""
+  when: (ansible_virtualization_type == "virtualbox" and pcs_fence_config_done.stat.exists != True)
+
+- name: Configure fencing on kvm
+  command: "{{ item }}"
+  with_items:
+    - "pcs stonith create pcm1_fence_dev fence_pve ipaddr=\"{{ prod_address }}\" node_name=\"{{ prod_node_name }}\" login=\"{{ prod_login }}\" passwd=\"{{ prod_password }}\" power_wait=\"15\" secure=\"1\" port=\"{{ prod_node1_port }}\" pcmk_host_list=\"{{ prod_node1_name }}\" pcmk_host_check=\"static_list\""
+    - "pcs stonith create pcm2_fence_dev fence_pve ipaddr=\"{{ prod_address }}\" node_name=\"{{ prod_node_name }}\" login=\"{{ prod_login }}\" passwd=\"{{ prod_password }}\" power_wait=\"15\" secure=\"1\" port=\"{{ prod_node2_port }}\" pcmk_host_list=\"{{ prod_node2_name }}\" pcmk_host_check=\"static_list\""
+    - "pcs stonith create pcm3_fence_dev fence_pve ipaddr=\"{{ prod_address }}\" node_name=\"{{ prod_node_name }}\" login=\"{{ prod_login }}\" passwd=\"{{ prod_password }}\" power_wait=\"15\" secure=\"1\" port=\"{{ prod_node3_port }}\" pcmk_host_list=\"{{ prod_node3_name }}\" pcmk_host_check=\"static_list\""
+  when: (ansible_virtualization_type == "kvm" and pcs_fence_config_done.stat.exists != True)
+
+- name: Set replay protection (/opt/pcs_fence_config_done)
+  file:
+    path: /opt/pcs_fence_config_done
+    state: touch
+    owner: root
+    group: root
+    mode: '0744'
+  when:
+    - pcs_fence_config_done.stat.exists != True
+...

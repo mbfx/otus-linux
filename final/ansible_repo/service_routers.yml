@@ -1,0 +1,14 @@
+---
+- name: "Service router provision (OTUS project)"
+  hosts: r1
+  become: true
+  tags:
+    - router
+    - service
+    - network
+
+  roles:
+    - all_base_config
+    - service_internet_config
+    - all_domain_config
+...

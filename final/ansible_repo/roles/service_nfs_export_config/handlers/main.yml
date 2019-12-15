@@ -1,0 +1,9 @@
+---
+- name: "restart nfs_config"
+  systemd:
+    name: nfs-config
+    state: restarted
+
+- name: "reexport nfs"
+  command: "exportfs -r"
+...

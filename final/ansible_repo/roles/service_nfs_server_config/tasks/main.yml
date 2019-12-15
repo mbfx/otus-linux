@@ -1,0 +1,48 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: Configure rpc.nfsd
+  replace:
+    path: "/etc/sysconfig/nfs"
+    regexp: '.*RPCNFSDARGS.*'
+    replace: "RPCNFSDARGS=\"-N2 -N3 -N4 -N4.0 -N4.1 -V4.2 -U\""
+  notify: "restart nfs_config"
+
+- name: Configure rpc.mountd
+  replace:
+    path: "/etc/sysconfig/nfs"
+    regexp: '.*RPCMOUNTDOPTS.*'
+    replace: "RPCMOUNTDOPTS=\"-N2 -N3 -N4 -N4.0 -N4.1 -V4.2 -u\""
+  notify: "restart nfs_config"
+
+- name: Configure RPC GSSD debug
+  replace:
+    path: "/etc/sysconfig/nfs"
+    regexp: '.*RPCGSSDARGS.*'
+    replace: "RPCGSSDARGS=\"-vvv\""
+  notify: "restart nfs_config"
+
+- name: Configure RPC SVC GSSD debug
+  replace:
+    path: "/etc/sysconfig/nfs"
+    regexp: '.*RPCSVCGSSDARGS.*'
+    replace: "RPCSVCGSSDARGS=\"-vvv\""
+  notify: "restart nfs_config"
+
+- name: Disable unused NFS services
+  systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  with_items:
+    - rpcbind.service
+    - rpc-statd.service
+    - rpcbind.socket
+
+- name: Enable NFS service, but stop it
+  systemd:
+    name: nfs-server.service
+    state: stopped
+    enabled: yes
+...

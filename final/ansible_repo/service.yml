@@ -1,0 +1,16 @@
+---
+- name: Import playbook - Switches
+  import_playbook: "service_switches.yml"
+
+- name: Import playbook - Auth and DNS
+  import_playbook: "service_auth_servers.yml"
+
+- name: Import playbook - Routers
+  import_playbook: "service_routers.yml"
+
+- name: Import playbook - Storage
+  import_playbook: "service_storage_servers.yml"
+
+- name: Import playbook - Monitoring
+  import_playbook: "service_mon_servers.yml"
+...

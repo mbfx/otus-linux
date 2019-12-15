@@ -1,0 +1,14 @@
+---
+- name: "Client router provision (OTUS project)"
+  hosts: r2
+  become: true
+  tags:
+    - router
+    - client
+    - network
+
+  roles:
+    - all_base_config
+    - client_internet_config
+    - all_domain_config
+...

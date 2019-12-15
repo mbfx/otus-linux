@@ -1,0 +1,26 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: "Check {{ drbd_mountpoint }}"
+  stat:
+    path: "{{ drbd_mountpoint }}"
+  register: drbd_mountpoint_exist
+
+- name: "Create {{ drbd_mountpoint }}"
+  file:
+    path: "{{ drbd_mountpoint }}"
+    owner: root
+    group: root
+    mode: '0644'
+    state: directory
+  when:
+    - drbd_mountpoint_exist.stat.exists != True
+
+#- name: "Export {{ drbd_mountpoint }} to NFS"
+#  lineinfile:
+#    path: /etc/exports
+#    line: "{{ drbd_mountpoint }} {{ prod_network_addr }}/{{ prod_cidr_mask }}(rw,sync,root_squash,sec=krb5p) {{ client_network_addr }}/{{ client_cidr_mask }}(rw,sync,root_squash,sec=krb5p)"
+#    state: present
+#  notify: "reexport nfs"
+...

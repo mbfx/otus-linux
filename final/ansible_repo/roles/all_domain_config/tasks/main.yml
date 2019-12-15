@@ -1,0 +1,58 @@
+---
+- meta: end_play
+  when: (ansible_distribution != "CentOS" and ansible_distribution_major_version != "7")
+
+- name: Install FreeIPA packages
+  yum:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+    - ipa-client
+    - rng-tools
+  notify:
+    - "restart rngd"
+
+- name: Disable default DNS from vagrant
+  command: "{{ item }}"
+  with_items:
+    - "nmcli con mod \"System eth0\" ipv4.ignore-auto-dns yes"
+  notify: 
+    - "restart NetworkManager"
+  when: ansible_virtualization_type == "virtualbox"
+
+- meta: flush_handlers
+
+- name: Check for replay (/opt/freeipa_client_done exists)
+  stat:
+    path: /opt/freeipa_client_done
+  register: freeipa_client_done
+
+- name: Install IPA client # Установим FreeIPA клиент с нужными настройками
+  ignore_errors: true
+  shell: "ipa-client-install -U --mkhomedir --hostname={{ hostname }}.{{ domain }} --force-join --enable-dns-updates --principal={{ idm_principal }} --password={{ IPA_password }} --domain={{ domain }} --server={{ idm_server }}.{{ domain }} --realm={{ realm }}"
+  when:
+    - freeipa_client_done.stat.exists != True
+
+- name: Set replay protection (/opt/freeipa_client_done)
+  file:
+    path: /opt/freeipa_client_done
+    state: touch
+    owner: root
+    group: root
+    mode: '0744'
+  when:
+    - freeipa_client_done.stat.exists != True
+
+#- name: Configuring firewalld
+#  firewalld:
+#    service: "{{ item }}"
+#    permanent: yes
+#    immediate: yes
+#    state: enabled
+#  with_items:
+#    - freeipa-ldap
+#    - freeipa-ldaps
+#    - dns
+#    - ntp
+...

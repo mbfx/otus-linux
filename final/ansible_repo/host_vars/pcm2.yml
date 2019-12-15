@@ -1,0 +1,7 @@
+---
+hostname: "pcm2"
+prod_ip_addr: "192.168.66.32"
+bond_name: "bond0"
+bond_slave_1: "eth1"
+bond_slave_2: "eth2"
+...

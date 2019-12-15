@@ -1,0 +1,39 @@
+---
+- name: "Authentication & DNS server base provision (OTUS project)"
+  hosts:
+    - auth1
+    - auth2
+  become: true
+  tags:
+    - auth
+    - dns
+    - service
+
+  roles:
+    - all_base_config
+    - service_network_config
+
+- name: "Authentication & DNS masters provision (OTUS project)"
+  hosts:
+    - auth1
+  become: true
+  tags:
+    - auth
+    - dns
+    - service
+
+  roles:
+    - service_auth_dns_server
+
+- name: "Authentication & DNS replica provision (OTUS project)"
+  hosts:
+    - auth2
+  become: true
+  tags:
+    - auth
+    - dns
+    - service
+
+  roles:
+    - service_auth_dns_replica
+...

@@ -1,0 +1,14 @@
+---
+- name: "Service switch provision (OTUS project)"
+  hosts:
+    - sw1
+    - sw2
+  become: true
+  tags:
+    - switch
+    - network
+    - service
+
+  roles:
+    - service_switch_config
+...

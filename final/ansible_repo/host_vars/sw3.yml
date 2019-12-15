@@ -1,0 +1,7 @@
+---
+hostname: "sw3"
+prod_ip_addr: "192.168.67.2"
+# Имя и порты моста коммутатора
+bridge_name: "bridge1"
+bridge_ports: "swp1-3"
+...
